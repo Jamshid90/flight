@@ -1,0 +1,62 @@
+version: "3.7"
+services:
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: flight
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 1122
+      PGDATA: /var/lib/postgresql/post-data
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      app-net:
+        aliases:
+          - database   
+  flight:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: flight:latest
+    restart: always
+    ports:
+      - "9000:9000"
+    volumes:
+      - .:/data
+    networks:
+      - app-net  
+    depends_on:
+      - db   
+    environment:
+        ENVIRONMENT: develop
+        LOG_LEVEL: debug
+        CONTEXT_TIMEOUT: 20s
+        SERVER_PROTOCOL: http
+        SERVER_HOST: localhost
+        SERVER_PORT: :9000
+        DATABASE_HOST: database
+        DATABASE_PORT: 5432
+        DATABASE_NAME: flight
+        DATABASE_USER: admin
+        DATABASE_PASSWORD: 1122
+        DATABASE_SSLMODE: disable
+  migrate:
+    image: migrate/migrate
+    restart: on-failure
+    depends_on:
+        - db
+    networks:
+        - app-net
+    volumes:
+      - ./migrations:/migrations  
+    command:  ["-path", "/migrations", "-database",  "postgres://admin:1122@database:5432/flight?sslmode=disable", "up"]
+    links: 
+        - database 
+networks:
+  app-net:
+      driver: bridge
+
+      
